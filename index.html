@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A simple personal vocabulary mini-dictionary with English and Kannada support, flashcards, and Word of the Day.">
+  <title>VocabVault - Personal Mini Dictionary</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans for UI & Noto Sans Kannada for Kannada script -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Header Section -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="logo-icon" aria-hidden="true">📖</div>
+        <div>
+          <h1 class="app-title">VocabVault</h1>
+          <p class="app-subtitle">Personal Vocabulary &amp; Mini-Dictionary</p>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="header-actions">
+        <button id="toggle-flashcards-btn" class="btn btn-secondary" aria-label="Open Flashcard Mode" title="Practice with Flashcards">
+          <span class="icon" aria-hidden="true">🗂️</span>
+          <span>Flashcards</span>
+        </button>
+        <button id="export-btn" class="btn btn-outline" aria-label="Export words as JSON" title="Download vocab-words.json">
+          <span class="icon" aria-hidden="true">📥</span>
+          <span>Export</span>
+        </button>
+        <label for="import-input" class="btn btn-outline" title="Import words from JSON" tabindex="0" role="button" aria-label="Import words from JSON">
+          <span class="icon" aria-hidden="true">📤</span>
+          <span>Import</span>
+          <input type="file" id="import-input" accept=".json,application/json" class="sr-only">
+        </label>
+      </div>
+    </div>
+
+    <!-- Quick Stats Bar -->
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-number" id="total-words-count">0</span>
+        <span class="stat-label">Total Words</span>
+      </div>
+      <div class="stat-divider" aria-hidden="true"></div>
+      <div class="stat-item">
+        <span class="stat-number" id="week-words-count">0</span>
+        <span class="stat-label">Added This Week</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- Word of the Day Section -->
+    <section class="wotd-section" aria-labelledby="wotd-heading">
+      <div class="card wotd-card">
+        <div class="wotd-badge">
+          <span aria-hidden="true">✨</span>
+          <span id="wotd-heading">Word of the Day</span>
+        </div>
+        <div id="wotd-content" class="wotd-content">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Flashcard Modal / View -->
+    <section id="flashcard-section" class="flashcard-section hidden" aria-labelledby="flashcard-heading">
+      <div class="card flashcard-container">
+        <div class="flashcard-header">
+          <div class="flashcard-title-group">
+            <h2 id="flashcard-heading" class="section-title">Flashcard Practice</h2>
+            <span id="flashcard-counter" class="badge">0 / 0</span>
+          </div>
+          <button id="close-flashcards-btn" class="btn-icon" aria-label="Close Flashcard Mode" title="Close">✕</button>
+        </div>
+
+        <div id="flashcard-empty" class="flashcard-empty hidden">
+          <p>No words to study yet. Add some words to start your flashcard deck!</p>
+        </div>
+
+        <div id="flashcard-interactive" class="flashcard-interactive">
+          <div class="flashcard-wrapper" id="flashcard" role="button" tabindex="0" aria-label="Flashcard. Click or press Enter/Space to flip.">
+            <div class="flashcard-inner">
+              <div class="flashcard-face flashcard-front">
+                <span class="face-tag">Word</span>
+                <h3 id="card-front-word" class="card-word">Word</h3>
+                <p class="hint-text">💡 Click or tap to reveal meaning</p>
+              </div>
+              <div class="flashcard-face flashcard-back">
+                <span class="face-tag">Meaning &amp; Example</span>
+                <div class="card-back-scroll">
+                  <div id="card-back-english" class="card-meaning-block hidden">
+                    <span class="lang-tag">English</span>
+                    <p id="card-back-english-text" class="card-text"></p>
+                  </div>
+                  <div id="card-back-kannada" class="card-meaning-block hidden">
+                    <span class="lang-tag">ಕನ್ನಡ</span>
+                    <p id="card-back-kannada-text" class="card-text kannada-text"></p>
+                  </div>
+                  <div id="card-back-example" class="card-example-block hidden">
+                    <span class="lang-tag">Example / Context</span>
+                    <p id="card-back-example-text" class="card-example"></p>
+                  </div>
+                </div>
+                <p class="hint-text">💡 Click or tap to see word</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flashcard-controls">
+            <button id="card-prev-btn" class="btn btn-secondary" aria-label="Previous card">
+              <span aria-hidden="true">←</span> Previous
+            </button>
+            <button id="card-flip-btn" class="btn btn-primary" aria-label="Flip card">
+              <span aria-hidden="true">🔄</span> Flip
+            </button>
+            <button id="card-shuffle-btn" class="btn btn-secondary" aria-label="Shuffle cards" title="Shuffle Deck">
+              <span aria-hidden="true">🔀</span> Shuffle
+            </button>
+            <button id="card-next-btn" class="btn btn-secondary" aria-label="Next card">
+              Next <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Word Form Section (Add / Edit) -->
+    <section class="form-section" aria-labelledby="form-heading">
+      <div class="card form-card" id="form-container">
+        <div class="form-header">
+          <h2 id="form-heading" class="section-title">Add New Word</h2>
+          <span id="form-mode-badge" class="badge badge-info hidden">Editing</span>
+        </div>
+        
+        <form id="vocab-form" novalidate>
+          <input type="hidden" id="word-id" value="">
+          
+          <div class="form-group">
+            <label for="word-input" class="form-label">
+              Word <span class="required" aria-hidden="true">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="word-input" 
+              class="form-control" 
+              placeholder="e.g. Serendipity or ಸುಸ್ವಾಗತ" 
+              required
+              autocomplete="off"
+            >
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="meaning-en-input" class="form-label">
+                Meaning in English <span class="field-hint">(optional)</span>
+              </label>
+              <textarea 
+                id="meaning-en-input" 
+                class="form-control" 
+                rows="2" 
+                placeholder="Definition or explanation in English..."
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="meaning-kn-input" class="form-label">
+                Meaning in Kannada <span class="field-hint kannada-text">(ಕನ್ನಡ ಅರ್ಥ - optional)</span>
+              </label>
+              <textarea 
+                id="meaning-kn-input" 
+                class="form-control kannada-text" 
+                rows="2" 
+                placeholder="ಕನ್ನಡದಲ್ಲಿ ಅರ್ಥ..."
+              ></textarea>
+            </div>
+          </div>
+
+          <p class="form-info-note">
+            <span aria-hidden="true">ℹ️</span> At least one meaning (English or Kannada) is required.
+          </p>
+
+          <div class="form-group">
+            <label for="example-input" class="form-label">
+              Example sentence or notes <span class="field-hint">(optional)</span>
+            </label>
+            <textarea 
+              id="example-input" 
+              class="form-control" 
+              rows="2" 
+              placeholder="e.g. Finding that cozy bookstore was pure serendipity."
+            ></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="save-word-btn" class="btn btn-primary">
+              <span class="icon" aria-hidden="true">➕</span>
+              <span id="save-btn-text">Save Word</span>
+            </button>
+            <button type="button" id="cancel-edit-btn" class="btn btn-outline hidden">
+              Cancel Edit
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Word List & Search Section -->
+    <section class="list-section" aria-labelledby="list-heading">
+      <div class="list-header-bar">
+        <div>
+          <h2 id="list-heading" class="section-title">My Dictionary</h2>
+          <p class="section-subtitle">Showing newest entries first</p>
+        </div>
+        
+        <!-- Live Search Box -->
+        <div class="search-box">
+          <span class="search-icon" aria-hidden="true">🔍</span>
+          <input 
+            type="search" 
+            id="search-input" 
+            class="form-control search-input" 
+            placeholder="Search word, meaning, or example..." 
+            aria-label="Search dictionary"
+            autocomplete="off"
+          >
+          <button id="clear-search-btn" class="clear-search-btn hidden" aria-label="Clear search" title="Clear">✕</button>
+        </div>
+      </div>
+
+      <!-- Active search filter indicator -->
+      <div id="search-status" class="search-status hidden" aria-live="polite"></div>
+
+      <!-- Words Card Grid Container -->
+      <div id="words-grid" class="words-grid" role="region" aria-label="Word entries">
+        <!-- Rendered dynamically by JavaScript -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-state" class="empty-state hidden">
+        <div class="empty-illustration" aria-hidden="true">📚</div>
+        <h3 class="empty-title">Your vocabulary is empty</h3>
+        <p class="empty-desc">Start building your personal lexicon! Add your first word using the form above or import an existing vocabulary file.</p>
+        <button id="empty-add-focus-btn" class="btn btn-primary">
+          <span aria-hidden="true">✍️</span> Add Your First Word
+        </button>
+      </div>
+
+      <!-- No Search Results State -->
+      <div id="no-results-state" class="empty-state hidden">
+        <div class="empty-illustration" aria-hidden="true">🔎</div>
+        <h3 class="empty-title">No matching words found</h3>
+        <p class="empty-desc">Try searching for a different keyword or check for spelling mistakes.</p>
+        <button id="reset-search-btn" class="btn btn-secondary">Clear Search</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p>VocabVault • Stored privately in your browser • Works 100% offline</p>
+  </footer>
+
+  <!-- Script -->
+  <script src="app.js"></script>
+</body>
+</html>
