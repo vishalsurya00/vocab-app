@@ -245,26 +245,48 @@
       <!-- Search Results Grid (shown only during search) -->
       <div id="search-results-grid" class="words-grid hidden" role="region" aria-label="Search results"></div>
 
-      <!-- Three-Level Drilldown Container (Month -> Date -> Words) -->
+      <!-- Four-Level Drilldown Container (Year -> Month -> Date -> Words) -->
       <div id="drilldown-container" class="drilldown-container">
         
-        <!-- Level 1: Month List View -->
-        <div id="level-months-view" class="drilldown-view">
+        <!-- Level 1: Year List View -->
+        <div id="level-years-view" class="drilldown-view">
+          <div id="years-grid" class="nav-cards-grid" role="region" aria-label="Years list">
+            <!-- Dynamic Year Cards -->
+          </div>
+        </div>
+
+        <!-- Level 2: Year View (Months in Year) -->
+        <div id="level-months-view" class="drilldown-view hidden">
+          <div class="drilldown-header-bar">
+            <button id="back-to-years-btn" class="btn btn-outline btn-sm" aria-label="Back to Year list">
+              <span aria-hidden="true">←</span> Back
+            </button>
+            <nav class="breadcrumbs" aria-label="Breadcrumb navigation">
+              <a href="#/" class="breadcrumb-link">My Dictionary</a>
+              <span class="breadcrumb-separator" aria-hidden="true">›</span>
+              <span id="breadcrumb-year-label" class="breadcrumb-current">Year</span>
+            </nav>
+            <button id="practice-year-btn" class="btn btn-primary btn-sm" aria-label="Practice words in this year">
+              <span aria-hidden="true">🗂️</span> Practice this year
+            </button>
+          </div>
           <div id="months-grid" class="nav-cards-grid" role="region" aria-label="Months list">
             <!-- Dynamic Month Cards -->
           </div>
         </div>
 
-        <!-- Level 2: Month View (Dates in Month) -->
+        <!-- Level 3: Month View (Dates in Month) -->
         <div id="level-dates-view" class="drilldown-view hidden">
           <div class="drilldown-header-bar">
-            <button id="back-to-months-btn" class="btn btn-outline btn-sm" aria-label="Back to Month list">
+            <button id="back-to-month-btn" class="btn btn-outline btn-sm" aria-label="Back to Year view">
               <span aria-hidden="true">←</span> Back
             </button>
             <nav class="breadcrumbs" aria-label="Breadcrumb navigation">
-              <a href="#/" class="breadcrumb-link" id="breadcrumb-home-link-1">My Dictionary</a>
+              <a href="#/" class="breadcrumb-link">My Dictionary</a>
               <span class="breadcrumb-separator" aria-hidden="true">›</span>
-              <span id="breadcrumb-month-label" class="breadcrumb-current">Month Year</span>
+              <a href="#/" id="breadcrumb-year-link-1" class="breadcrumb-link">Year</a>
+              <span class="breadcrumb-separator" aria-hidden="true">›</span>
+              <span id="breadcrumb-month-label" class="breadcrumb-current">Month</span>
             </nav>
             <button id="practice-month-btn" class="btn btn-primary btn-sm" aria-label="Practice words in this month">
               <span aria-hidden="true">🗂️</span> Practice this month
@@ -275,16 +297,18 @@
           </div>
         </div>
 
-        <!-- Level 3: Date View (Words on Date) -->
+        <!-- Level 4: Date View (Words on Date) -->
         <div id="level-words-view" class="drilldown-view hidden">
           <div class="drilldown-header-bar">
-            <button id="back-to-dates-btn" class="btn btn-outline btn-sm" aria-label="Back to Dates list">
+            <button id="back-to-dates-btn" class="btn btn-outline btn-sm" aria-label="Back to Month view">
               <span aria-hidden="true">←</span> Back
             </button>
             <nav class="breadcrumbs" aria-label="Breadcrumb navigation">
-              <a href="#/" class="breadcrumb-link" id="breadcrumb-home-link-2">My Dictionary</a>
+              <a href="#/" class="breadcrumb-link">My Dictionary</a>
               <span class="breadcrumb-separator" aria-hidden="true">›</span>
-              <a href="#/" id="breadcrumb-month-link" class="breadcrumb-link">Month Year</a>
+              <a href="#/" id="breadcrumb-year-link-2" class="breadcrumb-link">Year</a>
+              <span class="breadcrumb-separator" aria-hidden="true">›</span>
+              <a href="#/" id="breadcrumb-month-link" class="breadcrumb-link">Month</a>
               <span class="breadcrumb-separator" aria-hidden="true">›</span>
               <span id="breadcrumb-date-label" class="breadcrumb-current">Day Mon</span>
             </nav>

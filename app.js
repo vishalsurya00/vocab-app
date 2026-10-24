@@ -7,10 +7,10 @@
  * - Add/Edit words with English & Kannada support
  * - Duplicate prevention (case-insensitive)
  * - Seeded Word of the Day (consistent across the entire day)
- * - 3-Level Drilldown Navigation: Month -> Dates -> Words
- * - Hash-based client routing (#/, #/YYYY-MM, #/YYYY-MM-DD)
- * - Interactive 3D Flashcards with practice deck filtering (All, Month, Day)
- * - Global instant search across all months
+ * - 4-Level Drilldown Navigation: Year -> Months -> Dates -> Words
+ * - Hash-based client routing (#/, #/YYYY, #/YYYY-MM, #/YYYY-MM-DD)
+ * - Interactive 3D Flashcards with practice deck filtering (All, Year, Month, Day)
+ * - Global instant search across all years
  * - JSON Export & Import with schema validation
  * - Accessible keyboard navigation & Escape key handling
  * - XSS-safe DOM rendering
@@ -101,20 +101,29 @@
   const resetSearchBtn = document.getElementById('reset-search-btn');
   const emptyAddFocusBtn = document.getElementById('empty-add-focus-btn');
 
-  // Level 1: Month List Elements
+  // Level 1: Year List Elements
+  const levelYearsView = document.getElementById('level-years-view');
+  const yearsGrid = document.getElementById('years-grid');
+
+  // Level 2: Year View (Months) Elements
   const levelMonthsView = document.getElementById('level-months-view');
+  const backToYearsBtn = document.getElementById('back-to-years-btn');
+  const breadcrumbYearLabel = document.getElementById('breadcrumb-year-label');
+  const practiceYearBtn = document.getElementById('practice-year-btn');
   const monthsGrid = document.getElementById('months-grid');
 
-  // Level 2: Month View (Dates) Elements
+  // Level 3: Month View (Dates) Elements
   const levelDatesView = document.getElementById('level-dates-view');
-  const backToMonthsBtn = document.getElementById('back-to-months-btn');
+  const backToMonthBtn = document.getElementById('back-to-month-btn');
+  const breadcrumbYearLink1 = document.getElementById('breadcrumb-year-link-1');
   const breadcrumbMonthLabel = document.getElementById('breadcrumb-month-label');
   const practiceMonthBtn = document.getElementById('practice-month-btn');
   const datesGrid = document.getElementById('dates-grid');
 
-  // Level 3: Date View (Words) Elements
+  // Level 4: Date View (Words) Elements
   const levelWordsView = document.getElementById('level-words-view');
   const backToDatesBtn = document.getElementById('back-to-dates-btn');
+  const breadcrumbYearLink2 = document.getElementById('breadcrumb-year-link-2');
   const breadcrumbMonthLink = document.getElementById('breadcrumb-month-link');
   const breadcrumbDateLabel = document.getElementById('breadcrumb-date-label');
   const dateWordsBadge = document.getElementById('date-words-badge');
@@ -150,10 +159,6 @@
   // Utility Functions
   // --------------------------------------------------------------------------
 
-  /**
-   * Generates a unique ID for a word.
-   * @returns {string}
-   */
   function generateId() {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
       return crypto.randomUUID();
@@ -161,11 +166,6 @@
     return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
   }
 
-  /**
-   * Sanitizes string to prevent HTML injection / XSS when inserting into the DOM.
-   * @param {string} str
-   * @returns {string}
-   */
   function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -176,12 +176,6 @@
       .replace(/'/g, '&#039;');
   }
 
-  /**
-   * Displays a transient toast notification.
-   * @param {string} message
-   * @param {'info'|'success'|'error'} type
-   * @param {number} duration
-   */
   function showToast(message, type = 'info', duration = 3500) {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
@@ -218,9 +212,12 @@
     const monthNum = d.getMonth() + 1;
     const dayNum = d.getDate();
 
+    const yearKey = `${year}`;
     const monthKey = `${year}-${String(monthNum).padStart(2, '0')}`;
     const dateKey = `${year}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
 
+    const yearLabel = `${year}`;
+    const monthName = d.toLocaleDateString(undefined, { month: 'long' });
     const monthLabel = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     const dateLabel = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
     const dateShortLabel = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
@@ -228,19 +225,17 @@
     return {
       date: d,
       timestamp: d.getTime(),
+      yearKey,
       monthKey,
       dateKey,
+      yearLabel,
+      monthName,
       monthLabel,
       dateLabel,
       dateShortLabel
     };
   }
 
-  /**
-   * Formats an ISO date string for display on a card.
-   * @param {string} isoString
-   * @returns {string}
-   */
   function formatDate(isoString) {
     const info = getLocalDateInfo(isoString);
     return info ? info.dateLabel : '';
@@ -313,29 +308,44 @@
   }
 
   // --------------------------------------------------------------------------
-  // Data Hierarchy: Month -> Dates -> Words (Local Time)
+  // Data Hierarchy: Year -> Months -> Dates -> Words (Local Time)
   // --------------------------------------------------------------------------
   /**
-   * Groups words into a 3-level hierarchy: Months -> Dates -> Words.
+   * Groups words into a 4-level hierarchy: Years -> Months -> Dates -> Words.
    * Everything is sorted newest first.
    * @returns {Array<Object>}
    */
   function buildHierarchy() {
-    const monthsMap = new Map();
+    const yearsMap = new Map();
 
     words.forEach(wordItem => {
       const info = getLocalDateInfo(wordItem.dateAdded);
       if (!info) return;
 
-      if (!monthsMap.has(info.monthKey)) {
-        monthsMap.set(info.monthKey, {
+      // Ensure Year
+      if (!yearsMap.has(info.yearKey)) {
+        yearsMap.set(info.yearKey, {
+          yearKey: info.yearKey,
+          yearLabel: info.yearLabel,
+          monthsMap: new Map()
+        });
+      }
+
+      const yearObj = yearsMap.get(info.yearKey);
+
+      // Ensure Month
+      if (!yearObj.monthsMap.has(info.monthKey)) {
+        yearObj.monthsMap.set(info.monthKey, {
           monthKey: info.monthKey,
+          monthName: info.monthName,
           monthLabel: info.monthLabel,
           datesMap: new Map()
         });
       }
 
-      const monthObj = monthsMap.get(info.monthKey);
+      const monthObj = yearObj.monthsMap.get(info.monthKey);
+
+      // Ensure Date
       if (!monthObj.datesMap.has(info.dateKey)) {
         monthObj.datesMap.set(info.dateKey, {
           dateKey: info.dateKey,
@@ -348,36 +358,52 @@
       monthObj.datesMap.get(info.dateKey).words.push(wordItem);
     });
 
-    // Convert map to sorted array
-    const sortedMonths = Array.from(monthsMap.values()).map(monthObj => {
-      const sortedDates = Array.from(monthObj.datesMap.values()).map(dateObj => {
-        // Sort words in date newest first
-        dateObj.words.sort((a, b) => {
-          const tA = new Date(a.dateAdded || 0).getTime();
-          const tB = new Date(b.dateAdded || 0).getTime();
-          return tB - tA;
+    // Convert map to sorted 4-level array
+    const sortedYears = Array.from(yearsMap.values()).map(yearObj => {
+      const sortedMonths = Array.from(yearObj.monthsMap.values()).map(monthObj => {
+        const sortedDates = Array.from(monthObj.datesMap.values()).map(dateObj => {
+          // Sort words in date newest first
+          dateObj.words.sort((a, b) => {
+            const tA = new Date(a.dateAdded || 0).getTime();
+            const tB = new Date(b.dateAdded || 0).getTime();
+            return tB - tA;
+          });
+          return dateObj;
         });
-        return dateObj;
+
+        // Sort dates in month newest first
+        sortedDates.sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+
+        const monthTotalWords = sortedDates.reduce((acc, d) => acc + d.words.length, 0);
+
+        return {
+          monthKey: monthObj.monthKey,
+          monthName: monthObj.monthName,
+          monthLabel: monthObj.monthLabel,
+          totalWords: monthTotalWords,
+          totalDays: sortedDates.length,
+          dates: sortedDates
+        };
       });
 
-      // Sort dates in month newest first
-      sortedDates.sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+      // Sort months in year newest first
+      sortedMonths.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
 
-      const totalWords = sortedDates.reduce((acc, d) => acc + d.words.length, 0);
+      const yearTotalWords = sortedMonths.reduce((acc, m) => acc + m.totalWords, 0);
 
       return {
-        monthKey: monthObj.monthKey,
-        monthLabel: monthObj.monthLabel,
-        totalWords: totalWords,
-        totalDays: sortedDates.length,
-        dates: sortedDates
+        yearKey: yearObj.yearKey,
+        yearLabel: yearObj.yearLabel,
+        totalWords: yearTotalWords,
+        totalMonths: sortedMonths.length,
+        months: sortedMonths
       };
     });
 
-    // Sort months newest first
-    sortedMonths.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+    // Sort years newest first
+    sortedYears.sort((a, b) => b.yearKey.localeCompare(a.yearKey));
 
-    return sortedMonths;
+    return sortedYears;
   }
 
   // --------------------------------------------------------------------------
@@ -466,50 +492,115 @@
   // --------------------------------------------------------------------------
 
   /**
-   * Parses the current location.hash into route information.
-   * @returns {{ level: number, monthKey?: string, dateKey?: string }}
+   * Parses the current location.hash into route information across 4 levels.
+   * @returns {{ level: number, yearKey?: string, monthKey?: string, dateKey?: string }}
    */
   function parseHashRoute() {
     const rawHash = (window.location.hash || '').trim();
 
-    // Match Level 3: #/2026-10-24
+    // Level 4: #/2026-10-24
     const dateMatch = rawHash.match(/^#\/(\d{4}-\d{2}-\d{2})$/);
     if (dateMatch) {
       const dateKey = dateMatch[1];
       const monthKey = dateKey.substring(0, 7);
-      return { level: 3, dateKey, monthKey };
+      const yearKey = dateKey.substring(0, 4);
+      return { level: 4, dateKey, monthKey, yearKey };
     }
 
-    // Match Level 2: #/2026-10
+    // Level 3: #/2026-10
     const monthMatch = rawHash.match(/^#\/(\d{4}-\d{2})$/);
     if (monthMatch) {
-      return { level: 2, monthKey: monthMatch[1] };
+      const monthKey = monthMatch[1];
+      const yearKey = monthKey.substring(0, 4);
+      return { level: 3, monthKey, yearKey };
     }
 
-    // Default Level 1: Month List
+    // Level 2: #/2026
+    const yearMatch = rawHash.match(/^#\/(\d{4})$/);
+    if (yearMatch) {
+      return { level: 2, yearKey: yearMatch[1] };
+    }
+
+    // Default Level 1: Year List
     return { level: 1 };
   }
 
   /**
-   * Renders Level 1: Month List.
+   * Level 1: Renders Year List.
    */
-  function renderLevel1Months(hierarchy) {
+  function renderLevel1Years(hierarchy) {
+    levelYearsView.classList.remove('hidden');
+    levelMonthsView.classList.add('hidden');
+    levelDatesView.classList.add('hidden');
+    levelWordsView.classList.add('hidden');
+
+    yearsGrid.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    hierarchy.forEach(year => {
+      const card = document.createElement('button');
+      card.className = 'year-card';
+      card.type = 'button';
+      card.setAttribute('aria-label', `Open ${year.yearLabel}: ${year.totalWords} words across ${year.totalMonths} months`);
+
+      card.innerHTML = `
+        <div class="year-card-body">
+          <h3 class="year-card-title">${escapeHtml(year.yearLabel)}</h3>
+          <span class="year-card-stats">${year.totalWords} ${year.totalWords === 1 ? 'word' : 'words'} · ${year.totalMonths} ${year.totalMonths === 1 ? 'month' : 'months'}</span>
+        </div>
+        <span class="year-card-arrow" aria-hidden="true">→</span>
+      `;
+
+      card.addEventListener('click', () => {
+        window.location.hash = `#/${year.yearKey}`;
+      });
+
+      fragment.appendChild(card);
+    });
+
+    yearsGrid.appendChild(fragment);
+  }
+
+  /**
+   * Level 2: Renders Year View (Months in Year).
+   */
+  function renderLevel2Year(hierarchy, yearKey) {
+    const year = hierarchy.find(y => y.yearKey === yearKey);
+    if (!year || year.months.length === 0) {
+      window.location.hash = '#/';
+      return;
+    }
+
+    levelYearsView.classList.add('hidden');
     levelMonthsView.classList.remove('hidden');
     levelDatesView.classList.add('hidden');
     levelWordsView.classList.add('hidden');
 
+    // Breadcrumbs & Navigation
+    breadcrumbYearLabel.textContent = year.yearLabel;
+    backToYearsBtn.onclick = () => {
+      window.location.hash = '#/';
+    };
+
+    // Practice button for this entire year
+    const yearWords = year.months.flatMap(m => m.dates.flatMap(d => d.words));
+    practiceYearBtn.onclick = () => {
+      openFlashcards(yearWords, `Practice: ${year.yearLabel}`);
+    };
+
+    // Render Month Cards
     monthsGrid.innerHTML = '';
     const fragment = document.createDocumentFragment();
 
-    hierarchy.forEach(month => {
+    year.months.forEach(month => {
       const card = document.createElement('button');
       card.className = 'month-card';
       card.type = 'button';
-      card.setAttribute('aria-label', `Open ${month.monthLabel}: ${month.totalWords} words across ${month.totalDays} days`);
+      card.setAttribute('aria-label', `Open ${month.monthName} ${year.yearLabel}: ${month.totalWords} words across ${month.totalDays} days`);
 
       card.innerHTML = `
         <div class="month-card-body">
-          <h3 class="month-card-title">${escapeHtml(month.monthLabel)}</h3>
+          <h3 class="month-card-title">${escapeHtml(month.monthName)}</h3>
           <span class="month-card-stats">${month.totalWords} ${month.totalWords === 1 ? 'word' : 'words'} · ${month.totalDays} ${month.totalDays === 1 ? 'day' : 'days'}</span>
         </div>
         <span class="month-card-arrow" aria-hidden="true">→</span>
@@ -526,30 +617,39 @@
   }
 
   /**
-   * Renders Level 2: Month View (Dates list).
+   * Level 3: Renders Month View (Dates in Month).
    */
-  function renderLevel2Dates(hierarchy, monthKey) {
-    const month = hierarchy.find(m => m.monthKey === monthKey);
-    if (!month || month.dates.length === 0) {
-      // Month not found or has no words; redirect to root
+  function renderLevel3Month(hierarchy, monthKey, yearKey) {
+    const year = hierarchy.find(y => y.yearKey === yearKey);
+    if (!year) {
       window.location.hash = '#/';
       return;
     }
 
+    const month = year.months.find(m => m.monthKey === monthKey);
+    if (!month || month.dates.length === 0) {
+      window.location.hash = `#/${yearKey}`;
+      return;
+    }
+
+    levelYearsView.classList.add('hidden');
     levelMonthsView.classList.add('hidden');
     levelDatesView.classList.remove('hidden');
     levelWordsView.classList.add('hidden');
 
-    // Update Header & Breadcrumbs
-    breadcrumbMonthLabel.textContent = month.monthLabel;
-    backToMonthsBtn.onclick = () => {
-      window.location.hash = '#/';
+    // Breadcrumbs & Navigation (My Dictionary > 2026 > October)
+    breadcrumbYearLink1.textContent = year.yearLabel;
+    breadcrumbYearLink1.href = `#/${year.yearKey}`;
+    breadcrumbMonthLabel.textContent = month.monthName;
+
+    backToMonthBtn.onclick = () => {
+      window.location.hash = `#/${yearKey}`;
     };
 
     // Practice button for this month
     const monthWords = month.dates.flatMap(d => d.words);
     practiceMonthBtn.onclick = () => {
-      openFlashcards(monthWords, `Practice: ${month.monthLabel}`);
+      openFlashcards(monthWords, `Practice: ${month.monthName} ${year.yearLabel}`);
     };
 
     // Render Date Cards
@@ -570,7 +670,6 @@
       `;
       card.appendChild(topRow);
 
-      // Up to 3 preview chips
       const chipsContainer = document.createElement('div');
       chipsContainer.className = 'date-chips';
 
@@ -602,28 +701,36 @@
   }
 
   /**
-   * Renders Level 3: Date View (Word cards).
+   * Level 4: Renders Date View (Word cards).
    */
-  function renderLevel3Words(hierarchy, dateKey, monthKey) {
-    const month = hierarchy.find(m => m.monthKey === monthKey);
-    if (!month) {
+  function renderLevel4Words(hierarchy, dateKey, monthKey, yearKey) {
+    const year = hierarchy.find(y => y.yearKey === yearKey);
+    if (!year) {
       window.location.hash = '#/';
+      return;
+    }
+
+    const month = year.months.find(m => m.monthKey === monthKey);
+    if (!month) {
+      window.location.hash = `#/${yearKey}`;
       return;
     }
 
     const dateObj = month.dates.find(d => d.dateKey === dateKey);
     if (!dateObj || dateObj.words.length === 0) {
-      // Date not found or has no words; fallback to month view
       window.location.hash = `#/${monthKey}`;
       return;
     }
 
+    levelYearsView.classList.add('hidden');
     levelMonthsView.classList.add('hidden');
     levelDatesView.classList.add('hidden');
     levelWordsView.classList.remove('hidden');
 
-    // Breadcrumbs & Navigation
-    breadcrumbMonthLink.textContent = month.monthLabel;
+    // Breadcrumbs (My Dictionary > 2026 > October > 24 Oct)
+    breadcrumbYearLink2.textContent = year.yearLabel;
+    breadcrumbYearLink2.href = `#/${year.yearKey}`;
+    breadcrumbMonthLink.textContent = month.monthName;
     breadcrumbMonthLink.href = `#/${month.monthKey}`;
     breadcrumbDateLabel.textContent = dateObj.dateShortLabel;
 
@@ -655,13 +762,12 @@
   function handleRoute() {
     const query = searchQuery.trim().toLowerCase();
 
-    // If search is active, delegate entirely to search results
+    // If search is active, show search results
     if (query.length > 0) {
       renderSearchResults(query);
       return;
     }
 
-    // Clean up search UI
     searchResultsGrid.classList.add('hidden');
     searchStatusEl.classList.add('hidden');
     noResultsStateEl.classList.add('hidden');
@@ -678,24 +784,25 @@
     const hierarchy = buildHierarchy();
     const route = parseHashRoute();
 
-    if (route.level === 3) {
-      renderLevel3Words(hierarchy, route.dateKey, route.monthKey);
+    if (route.level === 4) {
+      renderLevel4Words(hierarchy, route.dateKey, route.monthKey, route.yearKey);
+    } else if (route.level === 3) {
+      renderLevel3Month(hierarchy, route.monthKey, route.yearKey);
     } else if (route.level === 2) {
-      renderLevel2Dates(hierarchy, route.monthKey);
+      renderLevel2Year(hierarchy, route.yearKey);
     } else {
-      renderLevel1Months(hierarchy);
+      renderLevel1Years(hierarchy);
     }
   }
 
   // --------------------------------------------------------------------------
-  // Global Live Search Across All Months
+  // Global Live Search Across All Years
   // --------------------------------------------------------------------------
   function renderSearchResults(query) {
     drilldownContainer.classList.add('hidden');
     emptyStateEl.classList.add('hidden');
     searchResultsGrid.classList.remove('hidden');
 
-    // Filter words newest first
     const sortedWords = [...words].sort((a, b) => {
       const timeA = new Date(a.dateAdded || 0).getTime();
       const timeB = new Date(b.dateAdded || 0).getTime();
@@ -713,14 +820,14 @@
     searchResultsGrid.innerHTML = '';
 
     if (matches.length === 0) {
-      searchStatusEl.textContent = `No matches found for "${query}" across all months`;
+      searchStatusEl.textContent = `No matches found for "${query}" across all years`;
       searchStatusEl.classList.remove('hidden');
       noResultsStateEl.classList.remove('hidden');
       return;
     }
 
     noResultsStateEl.classList.add('hidden');
-    searchStatusEl.textContent = `Found ${matches.length} matching ${matches.length === 1 ? 'word' : 'words'} across all months`;
+    searchStatusEl.textContent = `Found ${matches.length} matching ${matches.length === 1 ? 'word' : 'words'} across all years`;
     searchStatusEl.classList.remove('hidden');
 
     const fragment = document.createDocumentFragment();
@@ -762,7 +869,6 @@
     cancelEditBtn.classList.remove('hidden');
     formCard.classList.add('highlight-edit');
 
-    // Smooth scroll to form and focus input
     formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setTimeout(() => wordInput.focus(), 300);
   }
@@ -780,21 +886,18 @@
     const meaningKnVal = meaningKnInput.value.trim();
     const exampleVal = exampleInput.value.trim();
 
-    // Validation 1: Word is required
     if (!wordVal) {
       showToast('Please enter a word.', 'error');
       wordInput.focus();
       return;
     }
 
-    // Validation 2: At least one meaning is required
     if (!meaningEnVal && !meaningKnVal) {
       showToast('Please provide at least one meaning (English or Kannada).', 'error');
       meaningEnInput.focus();
       return;
     }
 
-    // Validation 3: Duplicate word prevention (case-insensitive)
     const isDuplicate = words.some(w => {
       const sameWord = w.word.trim().toLowerCase() === wordVal.toLowerCase();
       if (editingWordId) {
@@ -810,7 +913,6 @@
     }
 
     if (editingWordId) {
-      // Update existing word
       words = words.map(w => {
         if (w.id === editingWordId) {
           return {
@@ -828,7 +930,6 @@
         showToast(`Updated "${wordVal}" successfully!`, 'success');
       }
     } else {
-      // Add new word
       const newWord = {
         id: generateId(),
         word: wordVal,
@@ -856,7 +957,6 @@
     const confirmed = window.confirm(`Are you sure you want to delete "${wordText}"?\nThis action cannot be undone.`);
     if (!confirmed) return;
 
-    // Find the deleted word's date info before removal to check fallback
     const targetWord = words.find(w => w.id === id);
     const dateInfo = targetWord ? getLocalDateInfo(targetWord.dateAdded) : null;
 
@@ -869,43 +969,72 @@
         resetForm();
       }
 
-      // Check if we need to fall back a level
       const currentRoute = parseHashRoute();
 
-      if (dateInfo && currentRoute.level === 3 && currentRoute.dateKey === dateInfo.dateKey) {
-        // Check remaining words for this date
-        const remainingOnDate = words.filter(w => {
-          const info = getLocalDateInfo(w.dateAdded);
-          return info && info.dateKey === dateInfo.dateKey;
-        });
+      if (dateInfo) {
+        if (currentRoute.level === 4 && currentRoute.dateKey === dateInfo.dateKey) {
+          const remainingOnDate = words.filter(w => {
+            const info = getLocalDateInfo(w.dateAdded);
+            return info && info.dateKey === dateInfo.dateKey;
+          });
 
-        if (remainingOnDate.length === 0) {
-          // Check remaining words for this month
+          if (remainingOnDate.length === 0) {
+            const remainingInMonth = words.filter(w => {
+              const info = getLocalDateInfo(w.dateAdded);
+              return info && info.monthKey === dateInfo.monthKey;
+            });
+
+            if (remainingInMonth.length === 0) {
+              const remainingInYear = words.filter(w => {
+                const info = getLocalDateInfo(w.dateAdded);
+                return info && info.yearKey === dateInfo.yearKey;
+              });
+
+              if (remainingInYear.length === 0) {
+                window.location.hash = '#/';
+              } else {
+                window.location.hash = `#/${dateInfo.yearKey}`;
+              }
+            } else {
+              window.location.hash = `#/${dateInfo.monthKey}`;
+            }
+            updateStats();
+            renderWordOfTheDay();
+            return;
+          }
+        } else if (currentRoute.level === 3 && currentRoute.monthKey === dateInfo.monthKey) {
           const remainingInMonth = words.filter(w => {
             const info = getLocalDateInfo(w.dateAdded);
             return info && info.monthKey === dateInfo.monthKey;
           });
 
           if (remainingInMonth.length === 0) {
-            window.location.hash = '#/';
-          } else {
-            window.location.hash = `#/${dateInfo.monthKey}`;
-          }
-          updateStats();
-          renderWordOfTheDay();
-          return;
-        }
-      } else if (dateInfo && currentRoute.level === 2 && currentRoute.monthKey === dateInfo.monthKey) {
-        const remainingInMonth = words.filter(w => {
-          const info = getLocalDateInfo(w.dateAdded);
-          return info && info.monthKey === dateInfo.monthKey;
-        });
+            const remainingInYear = words.filter(w => {
+              const info = getLocalDateInfo(w.dateAdded);
+              return info && info.yearKey === dateInfo.yearKey;
+            });
 
-        if (remainingInMonth.length === 0) {
-          window.location.hash = '#/';
-          updateStats();
-          renderWordOfTheDay();
-          return;
+            if (remainingInYear.length === 0) {
+              window.location.hash = '#/';
+            } else {
+              window.location.hash = `#/${dateInfo.yearKey}`;
+            }
+            updateStats();
+            renderWordOfTheDay();
+            return;
+          }
+        } else if (currentRoute.level === 2 && currentRoute.yearKey === dateInfo.yearKey) {
+          const remainingInYear = words.filter(w => {
+            const info = getLocalDateInfo(w.dateAdded);
+            return info && info.yearKey === dateInfo.yearKey;
+          });
+
+          if (remainingInYear.length === 0) {
+            window.location.hash = '#/';
+            updateStats();
+            renderWordOfTheDay();
+            return;
+          }
         }
       }
 
@@ -1059,8 +1188,10 @@
       }
 
       const route = parseHashRoute();
-      if (route.level === 3) {
+      if (route.level === 4) {
         window.location.hash = `#/${route.monthKey}`;
+      } else if (route.level === 3) {
+        window.location.hash = `#/${route.yearKey}`;
       } else if (route.level === 2) {
         window.location.hash = '#/';
       }
