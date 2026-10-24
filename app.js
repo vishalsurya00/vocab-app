@@ -151,9 +151,10 @@
   const cardFlipBtn = document.getElementById('card-flip-btn');
   const cardShuffleBtn = document.getElementById('card-shuffle-btn');
 
-  // Export / Import Elements
+  // Export / Import & PWA Elements
   const exportBtn = document.getElementById('export-btn');
   const importInput = document.getElementById('import-input');
+  const installAppBtn = document.getElementById('install-app-btn');
 
   // --------------------------------------------------------------------------
   // Utility Functions
@@ -1385,6 +1386,71 @@
 
     if (!flashcardSection.classList.contains('hidden')) {
       updateFlashcardDisplay();
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // PWA Service Worker & Install Prompt
+  // --------------------------------------------------------------------------
+  let deferredInstallPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent standard automatic mini-infobar
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if (installAppBtn) {
+      installAppBtn.classList.remove('hidden');
+    }
+  });
+
+  if (installAppBtn) {
+    installAppBtn.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      try {
+        const choice = await deferredInstallPrompt.userChoice;
+        if (choice && choice.outcome === 'accepted') {
+          showToast('Thank you for installing VocabVault!', 'success');
+        }
+      } catch (err) {
+        console.warn('[PWA] Prompt outcome error:', err);
+      }
+      deferredInstallPrompt = null;
+      installAppBtn.classList.add('hidden');
+    });
+  }
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    if (installAppBtn) {
+      installAppBtn.classList.add('hidden');
+    }
+    showToast('VocabVault installed as an app!', 'success');
+  });
+
+  // Register Service Worker (only over HTTPS or localhost)
+  if ('serviceWorker' in navigator) {
+    const isLocalhost = Boolean(
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.endsWith('.localhost')
+    );
+    const isHttps = window.location.protocol === 'https:';
+
+    if (isHttps || isLocalhost) {
+      window.addEventListener('load', () => {
+        try {
+          navigator.serviceWorker.register('./sw.js')
+            .then((registration) => {
+              console.log('[SW] Service worker registered with scope:', registration.scope);
+            })
+            .catch((err) => {
+              console.warn('[SW] Service worker registration failed:', err);
+            });
+        } catch (err) {
+          console.warn('[SW] Service worker setup error:', err);
+        }
+      });
     }
   }
 

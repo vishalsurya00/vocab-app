@@ -62,7 +62,23 @@ If you prefer running via a local server:
 
 ---
 
-## ☁️ How to Deploy on Vercel
+## 📱 Install on Your Phone (PWA)
+
+VocabVault is an installable **Progressive Web App (PWA)** with full offline support:
+
+### On Android (Chrome / Edge)
+1. Open your deployed Vercel URL (or `localhost`) in Chrome or Edge.
+2. Tap the **"Install"** button in the app header (or tap Chrome's three-dot menu `⋮` and select **"Install app"** / **"Add to Home screen"**).
+3. VocabVault installs directly to your phone's home screen and app drawer with the book icon.
+4. Launches in standalone mode (no browser address bars) and works **100% offline**.
+
+### On iPhone & iPad (Safari)
+1. Open the deployed URL in Safari.
+2. Tap the **Share** button (box with upward arrow).
+3. Scroll down and tap **"Add to Home Screen"**.
+4. Tap **"Add"** in the top right corner.
+
+---
 
 Because VocabVault consists strictly of static files (`index.html`, `style.css`, `app.js`), deploying to Vercel is instant:
 

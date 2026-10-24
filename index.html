@@ -6,6 +6,13 @@
   <meta name="description" content="A simple personal vocabulary mini-dictionary with English and Kannada support, flashcards, and Word of the Day.">
   <title>VocabVault - Personal Mini Dictionary</title>
 
+  <!-- PWA Theme Color & Manifest -->
+  <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111827">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
   <!-- Google Fonts: Plus Jakarta Sans for UI & Noto Sans Kannada for Kannada script -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +37,10 @@
 
       <!-- Quick Action Buttons -->
       <div class="header-actions">
+        <button id="install-app-btn" class="btn btn-primary hidden" aria-label="Install VocabVault app" title="Install VocabVault on your device">
+          <span class="icon" aria-hidden="true">📲</span>
+          <span>Install</span>
+        </button>
         <button id="toggle-flashcards-btn" class="btn btn-secondary" aria-label="Open Flashcard Mode" title="Practice with Flashcards">
           <span class="icon" aria-hidden="true">🗂️</span>
           <span>Flashcards</span>

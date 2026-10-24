@@ -8,6 +8,8 @@
    Design Tokens & Color Palette
    -------------------------------------------------------------------------- */
 :root {
+  color-scheme: light dark;
+
   /* Light Theme Palette */
   --bg-primary: #f8fafc;
   --bg-surface: #ffffff;
@@ -896,24 +898,30 @@ body {
   gap: 0.6rem;
 }
 
-/* Navigation Cards Grid (for Months and Dates) */
+/* Navigation Cards Grid (for Years, Months, and Dates) */
 .nav-cards-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
+  width: 100%;
 }
 
 @media (min-width: 640px) {
   .nav-cards-grid {
     grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
   }
-/* Level 1: Year Card */
-.year-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.4rem;
+}
+
+/* ==========================================================================
+   Card Button Resets & Common Styles (Ensures identical look on mobile & desktop)
+   ========================================================================== */
+.year-card,
+.month-card,
+.date-card {
+  appearance: none;
+  -webkit-appearance: none;
   background-color: var(--bg-surface);
+  color: var(--text-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--card-shadow);
@@ -921,20 +929,36 @@ body {
   text-align: left;
   width: 100%;
   font-family: inherit;
+  font-size: 1rem;
+  padding: 1.15rem 1.25rem;
+  margin: 0;
+  display: flex;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   user-select: none;
+  box-sizing: border-box;
+  min-height: 52px; /* Touch target >= 44px */
 }
 
-.year-card:hover {
+.year-card:hover,
+.month-card:hover,
+.date-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--card-shadow-hover);
   border-color: var(--border-focus);
 }
 
-.year-card:focus-visible {
+.year-card:focus-visible,
+.month-card:focus-visible,
+.date-card:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
   border-color: var(--border-focus);
+}
+
+/* Level 1: Year Card */
+.year-card {
+  align-items: center;
+  justify-content: space-between;
 }
 
 .year-card-body {
@@ -948,6 +972,7 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 .year-card-stats {
@@ -970,32 +995,8 @@ body {
 
 /* Level 2: Month Card */
 .month-card {
-  display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 1.4rem;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--card-shadow);
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  user-select: none;
-}
-
-.month-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--card-shadow-hover);
-  border-color: var(--border-focus);
-}
-
-.month-card:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-  border-color: var(--border-focus);
 }
 
 .month-card-body {
@@ -1009,6 +1010,7 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 .month-card-stats {
@@ -1029,35 +1031,11 @@ body {
   transform: translateX(4px);
 }
 
-/* Level 2: Date Card */
+/* Level 3: Date Card */
 .date-card {
-  display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 1.15rem 1.25rem;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--card-shadow);
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  user-select: none;
-  min-height: 125px;
-}
-
-.date-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--card-shadow-hover);
-  border-color: var(--border-focus);
-}
-
-.date-card:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-  border-color: var(--border-focus);
+  min-height: 115px;
 }
 
 .date-card-header {
@@ -1066,6 +1044,7 @@ body {
   justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 0.85rem;
+  width: 100%;
 }
 
 .date-card-title {
@@ -1078,6 +1057,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  width: 100%;
 }
 
 .word-chip {
@@ -1102,11 +1082,12 @@ body {
   font-weight: 600;
 }
 
-/* Words Card Grid */
+/* Level 4: Words Card Grid */
 .words-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
+  width: 100%;
 }
 
 @media (min-width: 640px) {
@@ -1295,6 +1276,17 @@ body {
   font-size: 0.8rem;
   color: var(--text-muted);
   background: var(--bg-surface);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  width: 100%;
+}
+
+.app-footer p {
+  max-width: 100%;
+  margin: 0 auto;
+  line-height: 1.5;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 /* --------------------------------------------------------------------------
