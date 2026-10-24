@@ -7,10 +7,12 @@
  * - Add/Edit words with English & Kannada support
  * - Duplicate prevention (case-insensitive)
  * - Seeded Word of the Day (consistent across the entire day)
- * - 3D Flashcard mode with shuffle, keyboard shortcuts, and flip animation
- * - JSON Export & Import with schema validation and duplicate merging
- * - Live instant search across words, meanings, and examples
- * - Stats (Total words & Added this week)
+ * - 3-Level Drilldown Navigation: Month -> Dates -> Words
+ * - Hash-based client routing (#/, #/YYYY-MM, #/YYYY-MM-DD)
+ * - Interactive 3D Flashcards with practice deck filtering (All, Month, Day)
+ * - Global instant search across all months
+ * - JSON Export & Import with schema validation
+ * - Accessible keyboard navigation & Escape key handling
  * - XSS-safe DOM rendering
  */
 
@@ -41,12 +43,12 @@
 
   /**
    * Safely writes words array to localStorage.
-   * @param {Array<Object>} words
+   * @param {Array<Object>} wordsList
    * @returns {boolean} True if write succeeded.
    */
-  function setStoredWords(words) {
+  function setStoredWords(wordsList) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(words));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(wordsList));
       return true;
     } catch (err) {
       console.error('Error writing to localStorage:', err);
@@ -88,20 +90,42 @@
   const saveBtnText = document.getElementById('save-btn-text');
   const cancelEditBtn = document.getElementById('cancel-edit-btn');
 
-  // Search & List Elements
+  // Search & Navigation Elements
   const searchInput = document.getElementById('search-input');
   const clearSearchBtn = document.getElementById('clear-search-btn');
   const searchStatusEl = document.getElementById('search-status');
-  const wordsGridEl = document.getElementById('words-grid');
+  const searchResultsGrid = document.getElementById('search-results-grid');
+  const drilldownContainer = document.getElementById('drilldown-container');
   const emptyStateEl = document.getElementById('empty-state');
   const noResultsStateEl = document.getElementById('no-results-state');
   const resetSearchBtn = document.getElementById('reset-search-btn');
   const emptyAddFocusBtn = document.getElementById('empty-add-focus-btn');
 
+  // Level 1: Month List Elements
+  const levelMonthsView = document.getElementById('level-months-view');
+  const monthsGrid = document.getElementById('months-grid');
+
+  // Level 2: Month View (Dates) Elements
+  const levelDatesView = document.getElementById('level-dates-view');
+  const backToMonthsBtn = document.getElementById('back-to-months-btn');
+  const breadcrumbMonthLabel = document.getElementById('breadcrumb-month-label');
+  const practiceMonthBtn = document.getElementById('practice-month-btn');
+  const datesGrid = document.getElementById('dates-grid');
+
+  // Level 3: Date View (Words) Elements
+  const levelWordsView = document.getElementById('level-words-view');
+  const backToDatesBtn = document.getElementById('back-to-dates-btn');
+  const breadcrumbMonthLink = document.getElementById('breadcrumb-month-link');
+  const breadcrumbDateLabel = document.getElementById('breadcrumb-date-label');
+  const dateWordsBadge = document.getElementById('date-words-badge');
+  const practiceDateBtn = document.getElementById('practice-date-btn');
+  const wordsGridEl = document.getElementById('words-grid');
+
   // Flashcard Elements
   const toggleFlashcardsBtn = document.getElementById('toggle-flashcards-btn');
   const closeFlashcardsBtn = document.getElementById('close-flashcards-btn');
   const flashcardSection = document.getElementById('flashcard-section');
+  const flashcardHeading = document.getElementById('flashcard-heading');
   const flashcardInteractive = document.getElementById('flashcard-interactive');
   const flashcardEmpty = document.getElementById('flashcard-empty');
   const flashcardCounter = document.getElementById('flashcard-counter');
@@ -181,22 +205,45 @@
   }
 
   /**
-   * Formats an ISO date string into a friendly readable format.
+   * Parses an ISO date string in the user's LOCAL time zone.
+   * @param {string} isoString
+   * @returns {Object|null}
+   */
+  function getLocalDateInfo(isoString) {
+    if (!isoString) return null;
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return null;
+
+    const year = d.getFullYear();
+    const monthNum = d.getMonth() + 1;
+    const dayNum = d.getDate();
+
+    const monthKey = `${year}-${String(monthNum).padStart(2, '0')}`;
+    const dateKey = `${year}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+
+    const monthLabel = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const dateLabel = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    const dateShortLabel = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+    return {
+      date: d,
+      timestamp: d.getTime(),
+      monthKey,
+      dateKey,
+      monthLabel,
+      dateLabel,
+      dateShortLabel
+    };
+  }
+
+  /**
+   * Formats an ISO date string for display on a card.
    * @param {string} isoString
    * @returns {string}
    */
   function formatDate(isoString) {
-    if (!isoString) return '';
-    try {
-      const date = new Date(isoString);
-      return date.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    } catch {
-      return '';
-    }
+    const info = getLocalDateInfo(isoString);
+    return info ? info.dateLabel : '';
   }
 
   // --------------------------------------------------------------------------
@@ -218,17 +265,12 @@
   // --------------------------------------------------------------------------
   // Word of the Day (Deterministic Seed by Date)
   // --------------------------------------------------------------------------
-  /**
-   * Calculates a deterministic hash for a given string.
-   * @param {string} str
-   * @returns {number}
-   */
   function stringHash(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash |= 0; // Convert to 32bit integer
+      hash |= 0;
     }
     return Math.abs(hash);
   }
@@ -243,7 +285,6 @@
       return;
     }
 
-    // Use current local date formatted as YYYY-MM-DD as seed
     const now = new Date();
     const dateSeed = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const seedIndex = stringHash(dateSeed) % words.length;
@@ -272,20 +313,396 @@
   }
 
   // --------------------------------------------------------------------------
-  // Word List & Live Search
+  // Data Hierarchy: Month -> Dates -> Words (Local Time)
   // --------------------------------------------------------------------------
-  function renderWordList() {
+  /**
+   * Groups words into a 3-level hierarchy: Months -> Dates -> Words.
+   * Everything is sorted newest first.
+   * @returns {Array<Object>}
+   */
+  function buildHierarchy() {
+    const monthsMap = new Map();
+
+    words.forEach(wordItem => {
+      const info = getLocalDateInfo(wordItem.dateAdded);
+      if (!info) return;
+
+      if (!monthsMap.has(info.monthKey)) {
+        monthsMap.set(info.monthKey, {
+          monthKey: info.monthKey,
+          monthLabel: info.monthLabel,
+          datesMap: new Map()
+        });
+      }
+
+      const monthObj = monthsMap.get(info.monthKey);
+      if (!monthObj.datesMap.has(info.dateKey)) {
+        monthObj.datesMap.set(info.dateKey, {
+          dateKey: info.dateKey,
+          dateLabel: info.dateLabel,
+          dateShortLabel: info.dateShortLabel,
+          words: []
+        });
+      }
+
+      monthObj.datesMap.get(info.dateKey).words.push(wordItem);
+    });
+
+    // Convert map to sorted array
+    const sortedMonths = Array.from(monthsMap.values()).map(monthObj => {
+      const sortedDates = Array.from(monthObj.datesMap.values()).map(dateObj => {
+        // Sort words in date newest first
+        dateObj.words.sort((a, b) => {
+          const tA = new Date(a.dateAdded || 0).getTime();
+          const tB = new Date(b.dateAdded || 0).getTime();
+          return tB - tA;
+        });
+        return dateObj;
+      });
+
+      // Sort dates in month newest first
+      sortedDates.sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+
+      const totalWords = sortedDates.reduce((acc, d) => acc + d.words.length, 0);
+
+      return {
+        monthKey: monthObj.monthKey,
+        monthLabel: monthObj.monthLabel,
+        totalWords: totalWords,
+        totalDays: sortedDates.length,
+        dates: sortedDates
+      };
+    });
+
+    // Sort months newest first
+    sortedMonths.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+
+    return sortedMonths;
+  }
+
+  // --------------------------------------------------------------------------
+  // DOM Builder: Word Card (Shared by Date View & Search Results)
+  // --------------------------------------------------------------------------
+  function createWordCard(item, showDateBadge = false) {
+    const card = document.createElement('article');
+    card.className = 'word-card';
+    card.setAttribute('data-id', item.id);
+
+    // Card Header
+    const header = document.createElement('div');
+    header.className = 'word-card-header';
+    header.innerHTML = `
+      <h3 class="word-title">${escapeHtml(item.word)}</h3>
+      <span class="word-date" title="Added on ${escapeHtml(item.dateAdded)}">
+        ${escapeHtml(formatDate(item.dateAdded))}
+      </span>
+    `;
+    card.appendChild(header);
+
+    // Meanings Body
+    const meanings = document.createElement('div');
+    meanings.className = 'word-meanings';
+
+    if (item.meaningEnglish) {
+      const enRow = document.createElement('div');
+      enRow.className = 'meaning-row';
+      enRow.innerHTML = `
+        <span class="meaning-label">English</span>
+        <p class="meaning-val">${escapeHtml(item.meaningEnglish)}</p>
+      `;
+      meanings.appendChild(enRow);
+    }
+
+    if (item.meaningKannada) {
+      const knRow = document.createElement('div');
+      knRow.className = 'meaning-row';
+      knRow.innerHTML = `
+        <span class="meaning-label kannada-text">ಕನ್ನಡ</span>
+        <p class="meaning-val kannada-text">${escapeHtml(item.meaningKannada)}</p>
+      `;
+      meanings.appendChild(knRow);
+    }
+    card.appendChild(meanings);
+
+    // Example sentence
+    if (item.example) {
+      const exEl = document.createElement('div');
+      exEl.className = 'word-example';
+      exEl.innerHTML = `"${escapeHtml(item.example)}"`;
+      card.appendChild(exEl);
+    }
+
+    // Card Actions
+    const footer = document.createElement('div');
+    footer.className = 'word-card-footer';
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-outline btn-card-action';
+    editBtn.setAttribute('aria-label', `Edit ${item.word}`);
+    editBtn.innerHTML = '<span aria-hidden="true">✏️</span> Edit';
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startEditingWord(item.id);
+    });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-danger-outline btn-card-action';
+    deleteBtn.setAttribute('aria-label', `Delete ${item.word}`);
+    deleteBtn.innerHTML = '<span aria-hidden="true">🗑️</span> Delete';
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      confirmDeleteWord(item.id, item.word);
+    });
+
+    footer.appendChild(editBtn);
+    footer.appendChild(deleteBtn);
+    card.appendChild(footer);
+
+    return card;
+  }
+
+  // --------------------------------------------------------------------------
+  // Navigation & Drilldown Rendering
+  // --------------------------------------------------------------------------
+
+  /**
+   * Parses the current location.hash into route information.
+   * @returns {{ level: number, monthKey?: string, dateKey?: string }}
+   */
+  function parseHashRoute() {
+    const rawHash = (window.location.hash || '').trim();
+
+    // Match Level 3: #/2026-10-24
+    const dateMatch = rawHash.match(/^#\/(\d{4}-\d{2}-\d{2})$/);
+    if (dateMatch) {
+      const dateKey = dateMatch[1];
+      const monthKey = dateKey.substring(0, 7);
+      return { level: 3, dateKey, monthKey };
+    }
+
+    // Match Level 2: #/2026-10
+    const monthMatch = rawHash.match(/^#\/(\d{4}-\d{2})$/);
+    if (monthMatch) {
+      return { level: 2, monthKey: monthMatch[1] };
+    }
+
+    // Default Level 1: Month List
+    return { level: 1 };
+  }
+
+  /**
+   * Renders Level 1: Month List.
+   */
+  function renderLevel1Months(hierarchy) {
+    levelMonthsView.classList.remove('hidden');
+    levelDatesView.classList.add('hidden');
+    levelWordsView.classList.add('hidden');
+
+    monthsGrid.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    hierarchy.forEach(month => {
+      const card = document.createElement('button');
+      card.className = 'month-card';
+      card.type = 'button';
+      card.setAttribute('aria-label', `Open ${month.monthLabel}: ${month.totalWords} words across ${month.totalDays} days`);
+
+      card.innerHTML = `
+        <div class="month-card-body">
+          <h3 class="month-card-title">${escapeHtml(month.monthLabel)}</h3>
+          <span class="month-card-stats">${month.totalWords} ${month.totalWords === 1 ? 'word' : 'words'} · ${month.totalDays} ${month.totalDays === 1 ? 'day' : 'days'}</span>
+        </div>
+        <span class="month-card-arrow" aria-hidden="true">→</span>
+      `;
+
+      card.addEventListener('click', () => {
+        window.location.hash = `#/${month.monthKey}`;
+      });
+
+      fragment.appendChild(card);
+    });
+
+    monthsGrid.appendChild(fragment);
+  }
+
+  /**
+   * Renders Level 2: Month View (Dates list).
+   */
+  function renderLevel2Dates(hierarchy, monthKey) {
+    const month = hierarchy.find(m => m.monthKey === monthKey);
+    if (!month || month.dates.length === 0) {
+      // Month not found or has no words; redirect to root
+      window.location.hash = '#/';
+      return;
+    }
+
+    levelMonthsView.classList.add('hidden');
+    levelDatesView.classList.remove('hidden');
+    levelWordsView.classList.add('hidden');
+
+    // Update Header & Breadcrumbs
+    breadcrumbMonthLabel.textContent = month.monthLabel;
+    backToMonthsBtn.onclick = () => {
+      window.location.hash = '#/';
+    };
+
+    // Practice button for this month
+    const monthWords = month.dates.flatMap(d => d.words);
+    practiceMonthBtn.onclick = () => {
+      openFlashcards(monthWords, `Practice: ${month.monthLabel}`);
+    };
+
+    // Render Date Cards
+    datesGrid.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    month.dates.forEach(dateObj => {
+      const card = document.createElement('button');
+      card.className = 'date-card';
+      card.type = 'button';
+      card.setAttribute('aria-label', `Open date ${dateObj.dateLabel}: ${dateObj.words.length} words`);
+
+      const topRow = document.createElement('div');
+      topRow.className = 'date-card-header';
+      topRow.innerHTML = `
+        <h3 class="date-card-title">${escapeHtml(dateObj.dateLabel)}</h3>
+        <span class="badge">${dateObj.words.length} ${dateObj.words.length === 1 ? 'word' : 'words'}</span>
+      `;
+      card.appendChild(topRow);
+
+      // Up to 3 preview chips
+      const chipsContainer = document.createElement('div');
+      chipsContainer.className = 'date-chips';
+
+      const previewWords = dateObj.words.slice(0, 3);
+      previewWords.forEach(w => {
+        const chip = document.createElement('span');
+        chip.className = 'word-chip';
+        chip.textContent = w.word;
+        chipsContainer.appendChild(chip);
+      });
+
+      if (dateObj.words.length > 3) {
+        const moreChip = document.createElement('span');
+        moreChip.className = 'word-chip chip-more';
+        moreChip.textContent = `+${dateObj.words.length - 3} more`;
+        chipsContainer.appendChild(moreChip);
+      }
+
+      card.appendChild(chipsContainer);
+
+      card.addEventListener('click', () => {
+        window.location.hash = `#/${dateObj.dateKey}`;
+      });
+
+      fragment.appendChild(card);
+    });
+
+    datesGrid.appendChild(fragment);
+  }
+
+  /**
+   * Renders Level 3: Date View (Word cards).
+   */
+  function renderLevel3Words(hierarchy, dateKey, monthKey) {
+    const month = hierarchy.find(m => m.monthKey === monthKey);
+    if (!month) {
+      window.location.hash = '#/';
+      return;
+    }
+
+    const dateObj = month.dates.find(d => d.dateKey === dateKey);
+    if (!dateObj || dateObj.words.length === 0) {
+      // Date not found or has no words; fallback to month view
+      window.location.hash = `#/${monthKey}`;
+      return;
+    }
+
+    levelMonthsView.classList.add('hidden');
+    levelDatesView.classList.add('hidden');
+    levelWordsView.classList.remove('hidden');
+
+    // Breadcrumbs & Navigation
+    breadcrumbMonthLink.textContent = month.monthLabel;
+    breadcrumbMonthLink.href = `#/${month.monthKey}`;
+    breadcrumbDateLabel.textContent = dateObj.dateShortLabel;
+
+    backToDatesBtn.onclick = () => {
+      window.location.hash = `#/${month.monthKey}`;
+    };
+
+    dateWordsBadge.textContent = `${dateObj.words.length} ${dateObj.words.length === 1 ? 'word' : 'words'}`;
+
+    // Practice button for this date
+    practiceDateBtn.onclick = () => {
+      openFlashcards(dateObj.words, `Practice: ${dateObj.dateLabel}`);
+    };
+
+    // Render word cards for this date
+    wordsGridEl.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    dateObj.words.forEach(w => {
+      fragment.appendChild(createWordCard(w, false));
+    });
+
+    wordsGridEl.appendChild(fragment);
+  }
+
+  /**
+   * Main router and view dispatcher.
+   */
+  function handleRoute() {
     const query = searchQuery.trim().toLowerCase();
 
-    // Sort newest first
+    // If search is active, delegate entirely to search results
+    if (query.length > 0) {
+      renderSearchResults(query);
+      return;
+    }
+
+    // Clean up search UI
+    searchResultsGrid.classList.add('hidden');
+    searchStatusEl.classList.add('hidden');
+    noResultsStateEl.classList.add('hidden');
+
+    if (words.length === 0) {
+      drilldownContainer.classList.add('hidden');
+      emptyStateEl.classList.remove('hidden');
+      return;
+    }
+
+    emptyStateEl.classList.add('hidden');
+    drilldownContainer.classList.remove('hidden');
+
+    const hierarchy = buildHierarchy();
+    const route = parseHashRoute();
+
+    if (route.level === 3) {
+      renderLevel3Words(hierarchy, route.dateKey, route.monthKey);
+    } else if (route.level === 2) {
+      renderLevel2Dates(hierarchy, route.monthKey);
+    } else {
+      renderLevel1Months(hierarchy);
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Global Live Search Across All Months
+  // --------------------------------------------------------------------------
+  function renderSearchResults(query) {
+    drilldownContainer.classList.add('hidden');
+    emptyStateEl.classList.add('hidden');
+    searchResultsGrid.classList.remove('hidden');
+
+    // Filter words newest first
     const sortedWords = [...words].sort((a, b) => {
       const timeA = new Date(a.dateAdded || 0).getTime();
       const timeB = new Date(b.dateAdded || 0).getTime();
       return timeB - timeA;
     });
 
-    const filteredWords = sortedWords.filter(item => {
-      if (!query) return true;
+    const matches = sortedWords.filter(item => {
       const wordMatch = (item.word || '').toLowerCase().includes(query);
       const enMatch = (item.meaningEnglish || '').toLowerCase().includes(query);
       const knMatch = (item.meaningKannada || '').toLowerCase().includes(query);
@@ -293,111 +710,25 @@
       return wordMatch || enMatch || knMatch || exMatch;
     });
 
-    // Handle Empty States
-    if (words.length === 0) {
-      wordsGridEl.innerHTML = '';
-      emptyStateEl.classList.remove('hidden');
-      noResultsStateEl.classList.add('hidden');
-      searchStatusEl.classList.add('hidden');
-      return;
-    }
+    searchResultsGrid.innerHTML = '';
 
-    emptyStateEl.classList.add('hidden');
-
-    if (filteredWords.length === 0) {
-      wordsGridEl.innerHTML = '';
-      noResultsStateEl.classList.remove('hidden');
-      searchStatusEl.textContent = `No matches found for "${query}"`;
+    if (matches.length === 0) {
+      searchStatusEl.textContent = `No matches found for "${query}" across all months`;
       searchStatusEl.classList.remove('hidden');
+      noResultsStateEl.classList.remove('hidden');
       return;
     }
 
     noResultsStateEl.classList.add('hidden');
+    searchStatusEl.textContent = `Found ${matches.length} matching ${matches.length === 1 ? 'word' : 'words'} across all months`;
+    searchStatusEl.classList.remove('hidden');
 
-    if (query) {
-      searchStatusEl.textContent = `Found ${filteredWords.length} matching ${filteredWords.length === 1 ? 'word' : 'words'}`;
-      searchStatusEl.classList.remove('hidden');
-    } else {
-      searchStatusEl.classList.add('hidden');
-    }
-
-    // Build Word Cards
-    wordsGridEl.innerHTML = '';
     const fragment = document.createDocumentFragment();
-
-    filteredWords.forEach(item => {
-      const card = document.createElement('article');
-      card.className = 'word-card';
-      card.setAttribute('data-id', item.id);
-
-      // Card Header
-      const header = document.createElement('div');
-      header.className = 'word-card-header';
-      header.innerHTML = `
-        <h3 class="word-title">${escapeHtml(item.word)}</h3>
-        <span class="word-date" title="Added on ${escapeHtml(item.dateAdded)}">
-          ${escapeHtml(formatDate(item.dateAdded))}
-        </span>
-      `;
-      card.appendChild(header);
-
-      // Meanings Body
-      const meanings = document.createElement('div');
-      meanings.className = 'word-meanings';
-
-      if (item.meaningEnglish) {
-        const enRow = document.createElement('div');
-        enRow.className = 'meaning-row';
-        enRow.innerHTML = `
-          <span class="meaning-label">English</span>
-          <p class="meaning-val">${escapeHtml(item.meaningEnglish)}</p>
-        `;
-        meanings.appendChild(enRow);
-      }
-
-      if (item.meaningKannada) {
-        const knRow = document.createElement('div');
-        knRow.className = 'meaning-row';
-        knRow.innerHTML = `
-          <span class="meaning-label kannada-text">ಕನ್ನಡ</span>
-          <p class="meaning-val kannada-text">${escapeHtml(item.meaningKannada)}</p>
-        `;
-        meanings.appendChild(knRow);
-      }
-      card.appendChild(meanings);
-
-      // Example sentence
-      if (item.example) {
-        const exEl = document.createElement('div');
-        exEl.className = 'word-example';
-        exEl.innerHTML = `"${escapeHtml(item.example)}"`;
-        card.appendChild(exEl);
-      }
-
-      // Card Actions
-      const footer = document.createElement('div');
-      footer.className = 'word-card-footer';
-
-      const editBtn = document.createElement('button');
-      editBtn.className = 'btn btn-outline btn-card-action';
-      editBtn.setAttribute('aria-label', `Edit ${item.word}`);
-      editBtn.innerHTML = '<span aria-hidden="true">✏️</span> Edit';
-      editBtn.addEventListener('click', () => startEditingWord(item.id));
-
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'btn btn-danger-outline btn-card-action';
-      deleteBtn.setAttribute('aria-label', `Delete ${item.word}`);
-      deleteBtn.innerHTML = '<span aria-hidden="true">🗑️</span> Delete';
-      deleteBtn.addEventListener('click', () => confirmDeleteWord(item.id, item.word));
-
-      footer.appendChild(editBtn);
-      footer.appendChild(deleteBtn);
-      card.appendChild(footer);
-
-      fragment.appendChild(card);
+    matches.forEach(item => {
+      fragment.appendChild(createWordCard(item, true));
     });
 
-    wordsGridEl.appendChild(fragment);
+    searchResultsGrid.appendChild(fragment);
   }
 
   // --------------------------------------------------------------------------
@@ -466,7 +797,6 @@
     // Validation 3: Duplicate word prevention (case-insensitive)
     const isDuplicate = words.some(w => {
       const sameWord = w.word.trim().toLowerCase() === wordVal.toLowerCase();
-      // Allow saving unchanged or modified word when editing the current item
       if (editingWordId) {
         return sameWord && w.id !== editingWordId;
       }
@@ -520,30 +850,86 @@
   });
 
   // --------------------------------------------------------------------------
-  // Delete Word
+  // Delete Word with Automatic Level Fallback
   // --------------------------------------------------------------------------
   function confirmDeleteWord(id, wordText) {
     const confirmed = window.confirm(`Are you sure you want to delete "${wordText}"?\nThis action cannot be undone.`);
     if (!confirmed) return;
 
+    // Find the deleted word's date info before removal to check fallback
+    const targetWord = words.find(w => w.id === id);
+    const dateInfo = targetWord ? getLocalDateInfo(targetWord.dateAdded) : null;
+
     words = words.filter(w => w.id !== id);
+
     if (setStoredWords(words)) {
       showToast(`Deleted "${wordText}".`, 'info');
-      // If we were editing this word, reset the form
+
       if (editingWordId === id) {
         resetForm();
       }
+
+      // Check if we need to fall back a level
+      const currentRoute = parseHashRoute();
+
+      if (dateInfo && currentRoute.level === 3 && currentRoute.dateKey === dateInfo.dateKey) {
+        // Check remaining words for this date
+        const remainingOnDate = words.filter(w => {
+          const info = getLocalDateInfo(w.dateAdded);
+          return info && info.dateKey === dateInfo.dateKey;
+        });
+
+        if (remainingOnDate.length === 0) {
+          // Check remaining words for this month
+          const remainingInMonth = words.filter(w => {
+            const info = getLocalDateInfo(w.dateAdded);
+            return info && info.monthKey === dateInfo.monthKey;
+          });
+
+          if (remainingInMonth.length === 0) {
+            window.location.hash = '#/';
+          } else {
+            window.location.hash = `#/${dateInfo.monthKey}`;
+          }
+          updateStats();
+          renderWordOfTheDay();
+          return;
+        }
+      } else if (dateInfo && currentRoute.level === 2 && currentRoute.monthKey === dateInfo.monthKey) {
+        const remainingInMonth = words.filter(w => {
+          const info = getLocalDateInfo(w.dateAdded);
+          return info && info.monthKey === dateInfo.monthKey;
+        });
+
+        if (remainingInMonth.length === 0) {
+          window.location.hash = '#/';
+          updateStats();
+          renderWordOfTheDay();
+          return;
+        }
+      }
+
       updateAppView();
     }
   }
 
   // --------------------------------------------------------------------------
-  // Flashcard Mode
+  // Flashcard Mode (Filtered Decks & 3D Flip)
   // --------------------------------------------------------------------------
-  function initFlashcardDeck() {
-    flashcardDeck = [...words];
+  function openFlashcards(wordsList, title) {
+    flashcardDeck = [...wordsList];
     flashcardIndex = 0;
     isCardFlipped = false;
+
+    if (flashcardHeading) {
+      flashcardHeading.textContent = title || 'Flashcard Practice';
+    }
+
+    flashcardSection.classList.remove('hidden');
+    updateFlashcardDisplay();
+    flashcardSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toggleFlashcardsBtn.classList.add('btn-primary');
+    toggleFlashcardsBtn.classList.remove('btn-secondary');
   }
 
   function updateFlashcardDisplay() {
@@ -557,13 +943,11 @@
     flashcardEmpty.classList.add('hidden');
     flashcardInteractive.classList.remove('hidden');
 
-    // Ensure index stays in bounds
     if (flashcardIndex >= flashcardDeck.length) flashcardIndex = 0;
     if (flashcardIndex < 0) flashcardIndex = flashcardDeck.length - 1;
 
     flashcardCounter.textContent = `${flashcardIndex + 1} / ${flashcardDeck.length}`;
 
-    // Reset flip state when changing card
     isCardFlipped = false;
     flashcardEl.classList.remove('is-flipped');
 
@@ -613,7 +997,6 @@
 
   function shuffleFlashcards() {
     if (flashcardDeck.length <= 1) return;
-    // Fisher-Yates shuffle algorithm
     for (let i = flashcardDeck.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [flashcardDeck[i], flashcardDeck[j]] = [flashcardDeck[j], flashcardDeck[i]];
@@ -626,12 +1009,7 @@
   function toggleFlashcards() {
     const isHidden = flashcardSection.classList.contains('hidden');
     if (isHidden) {
-      initFlashcardDeck();
-      flashcardSection.classList.remove('hidden');
-      updateFlashcardDisplay();
-      flashcardSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      toggleFlashcardsBtn.classList.add('btn-primary');
-      toggleFlashcardsBtn.classList.remove('btn-secondary');
+      openFlashcards(words, 'Flashcard Practice (All Words)');
     } else {
       flashcardSection.classList.add('hidden');
       toggleFlashcardsBtn.classList.remove('btn-primary');
@@ -653,7 +1031,6 @@
   cardPrevBtn.addEventListener('click', prevFlashcard);
   cardShuffleBtn.addEventListener('click', shuffleFlashcards);
 
-  // Keyboard navigation for flashcards
   flashcardEl.addEventListener('keydown', (e) => {
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
@@ -661,21 +1038,50 @@
     }
   });
 
+  // Global Keyboard Navigation (Escape for Back, Arrow keys for Flashcards)
   document.addEventListener('keydown', (e) => {
-    if (flashcardSection.classList.contains('hidden')) return;
-    // Don't trigger if user is typing in an input
-    const tag = (document.activeElement && document.activeElement.tagName) || '';
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    // Escape key handling
+    if (e.key === 'Escape') {
+      if (!flashcardSection.classList.contains('hidden')) {
+        flashcardSection.classList.add('hidden');
+        toggleFlashcardsBtn.classList.remove('btn-primary');
+        toggleFlashcardsBtn.classList.add('btn-secondary');
+        return;
+      }
 
-    if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      nextFlashcard();
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      prevFlashcard();
-    } else if (e.key === ' ') {
-      e.preventDefault();
-      flipFlashcard();
+      if (searchQuery.length > 0 || document.activeElement === searchInput) {
+        searchInput.value = '';
+        searchQuery = '';
+        clearSearchBtn.classList.add('hidden');
+        searchInput.blur();
+        handleRoute();
+        return;
+      }
+
+      const route = parseHashRoute();
+      if (route.level === 3) {
+        window.location.hash = `#/${route.monthKey}`;
+      } else if (route.level === 2) {
+        window.location.hash = '#/';
+      }
+      return;
+    }
+
+    // Flashcard arrow keys
+    if (!flashcardSection.classList.contains('hidden')) {
+      const tag = (document.activeElement && document.activeElement.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        nextFlashcard();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevFlashcard();
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        flipFlashcard();
+      }
     }
   });
 
@@ -724,13 +1130,10 @@
         let skippedCount = 0;
         let invalidCount = 0;
 
-        // Existing words set for quick case-insensitive duplicate check
         const existingWordSet = new Set(words.map(w => (w.word || '').trim().toLowerCase()));
-
         const validatedNewWords = [];
 
         for (const item of parsed) {
-          // Check item shape
           if (!item || typeof item !== 'object') {
             invalidCount++;
             continue;
@@ -744,7 +1147,6 @@
             ? item.dateAdded
             : new Date().toISOString();
 
-          // Validation: word and at least one meaning
           if (!rawWord || (!meaningEn && !meaningKn)) {
             invalidCount++;
             continue;
@@ -792,7 +1194,6 @@
         console.error('Import parse error:', err);
         showToast('Could not parse JSON file. Please ensure it is valid JSON.', 'error');
       } finally {
-        // Reset file input so re-selecting the same file works
         importInput.value = '';
       }
     };
@@ -815,7 +1216,7 @@
     } else {
       clearSearchBtn.classList.add('hidden');
     }
-    renderWordList();
+    handleRoute();
   });
 
   clearSearchBtn.addEventListener('click', () => {
@@ -823,14 +1224,14 @@
     searchQuery = '';
     clearSearchBtn.classList.add('hidden');
     searchInput.focus();
-    renderWordList();
+    handleRoute();
   });
 
   resetSearchBtn.addEventListener('click', () => {
     searchInput.value = '';
     searchQuery = '';
     clearSearchBtn.classList.add('hidden');
-    renderWordList();
+    handleRoute();
   });
 
   emptyAddFocusBtn.addEventListener('click', () => {
@@ -839,16 +1240,19 @@
   });
 
   // --------------------------------------------------------------------------
+  // Hash Routing Listener
+  // --------------------------------------------------------------------------
+  window.addEventListener('hashchange', handleRoute);
+
+  // --------------------------------------------------------------------------
   // View Refresh & Initialization
   // --------------------------------------------------------------------------
   function updateAppView() {
     updateStats();
     renderWordOfTheDay();
-    renderWordList();
+    handleRoute();
 
-    // If flashcard deck is open, refresh deck
     if (!flashcardSection.classList.contains('hidden')) {
-      initFlashcardDeck();
       updateFlashcardDisplay();
     }
   }

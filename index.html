@@ -242,9 +242,63 @@
       <!-- Active search filter indicator -->
       <div id="search-status" class="search-status hidden" aria-live="polite"></div>
 
-      <!-- Words Card Grid Container -->
-      <div id="words-grid" class="words-grid" role="region" aria-label="Word entries">
-        <!-- Rendered dynamically by JavaScript -->
+      <!-- Search Results Grid (shown only during search) -->
+      <div id="search-results-grid" class="words-grid hidden" role="region" aria-label="Search results"></div>
+
+      <!-- Three-Level Drilldown Container (Month -> Date -> Words) -->
+      <div id="drilldown-container" class="drilldown-container">
+        
+        <!-- Level 1: Month List View -->
+        <div id="level-months-view" class="drilldown-view">
+          <div id="months-grid" class="nav-cards-grid" role="region" aria-label="Months list">
+            <!-- Dynamic Month Cards -->
+          </div>
+        </div>
+
+        <!-- Level 2: Month View (Dates in Month) -->
+        <div id="level-dates-view" class="drilldown-view hidden">
+          <div class="drilldown-header-bar">
+            <button id="back-to-months-btn" class="btn btn-outline btn-sm" aria-label="Back to Month list">
+              <span aria-hidden="true">←</span> Back
+            </button>
+            <nav class="breadcrumbs" aria-label="Breadcrumb navigation">
+              <a href="#/" class="breadcrumb-link" id="breadcrumb-home-link-1">My Dictionary</a>
+              <span class="breadcrumb-separator" aria-hidden="true">›</span>
+              <span id="breadcrumb-month-label" class="breadcrumb-current">Month Year</span>
+            </nav>
+            <button id="practice-month-btn" class="btn btn-primary btn-sm" aria-label="Practice words in this month">
+              <span aria-hidden="true">🗂️</span> Practice this month
+            </button>
+          </div>
+          <div id="dates-grid" class="nav-cards-grid" role="region" aria-label="Dates list">
+            <!-- Dynamic Date Cards -->
+          </div>
+        </div>
+
+        <!-- Level 3: Date View (Words on Date) -->
+        <div id="level-words-view" class="drilldown-view hidden">
+          <div class="drilldown-header-bar">
+            <button id="back-to-dates-btn" class="btn btn-outline btn-sm" aria-label="Back to Dates list">
+              <span aria-hidden="true">←</span> Back
+            </button>
+            <nav class="breadcrumbs" aria-label="Breadcrumb navigation">
+              <a href="#/" class="breadcrumb-link" id="breadcrumb-home-link-2">My Dictionary</a>
+              <span class="breadcrumb-separator" aria-hidden="true">›</span>
+              <a href="#/" id="breadcrumb-month-link" class="breadcrumb-link">Month Year</a>
+              <span class="breadcrumb-separator" aria-hidden="true">›</span>
+              <span id="breadcrumb-date-label" class="breadcrumb-current">Day Mon</span>
+            </nav>
+            <div class="drilldown-actions">
+              <span id="date-words-badge" class="badge">0 words</span>
+              <button id="practice-date-btn" class="btn btn-primary btn-sm" aria-label="Practice words from this day">
+                <span aria-hidden="true">🗂️</span> Practice this day
+              </button>
+            </div>
+          </div>
+          <div id="words-grid" class="words-grid" role="region" aria-label="Word entries">
+            <!-- Dynamic Word Cards -->
+          </div>
+        </div>
       </div>
 
       <!-- Empty State -->

@@ -10,18 +10,25 @@ A clean, modern, offline-first personal vocabulary mini-dictionary web app built
   - Add and edit words with meanings in English, Kannada (ಕನ್ನಡ), and context examples or notes.
   - At least one meaning is required.
   - Automatic duplicate blocking (case-insensitive) with helpful alerts.
+- **Three-Level Dictionary Navigation**:
+  - **Level 1 (Months)**: View all months sorted newest first with total words and days count (e.g. `October 2026 · 12 words · 4 days`).
+  - **Level 2 (Dates in Month)**: Click into any month to see date cards with up to 3 preview chips and a "Practice this month" flashcard launcher.
+  - **Level 3 (Words on Date)**: Click into any date to view and manage that day's words with Edit and Delete options, plus a "Practice this day" flashcard launcher.
+  - Full `location.hash` browser history support (Back/Forward, refresh persistence) and <kbd>Escape</kbd> key navigation.
+- **Sample Data**: Includes `sample-words.json` with 15 bilingual entries spanning 3 different months for easy testing via Import.
 - **Word of the Day**:
   - Shows a featured word at the top of the dictionary.
   - Uses the current date as a deterministic seed so it stays consistent for the entire day.
 - **3D Interactive Flashcards**:
   - Toggle into study mode with smooth CSS 3D flip card animations.
   - Front shows the word, flip reveals the meanings and example.
+  - Practice entire library, a specific month, or a single day.
   - Shuffle deck, next/previous buttons, and keyboard controls (<kbd>Space</kbd>/<kbd>Enter</kbd> to flip, <kbd>→</kbd> / <kbd>←</kbd> to navigate).
-- **Live Search**:
-  - Instant real-time filtering by word, English meaning, Kannada meaning, or example sentences.
+- **Global Live Search**:
+  - Instant real-time filtering across all months by word, English meaning, Kannada meaning, or example sentences.
 - **Data Backup & Restore**:
   - **Export**: One-click download of your entire dictionary as `vocab-words.json`.
-  - **Import**: Merge JSON backup files safely with schema validation and duplicate skipping.
+  - **Import**: Merge JSON backup files (like `sample-words.json`) safely with schema validation and duplicate skipping.
 - **Stats Counter**:
   - Tracks total words and words added this week.
 - **Beautiful Typography & Dark Mode**:
