@@ -110,6 +110,7 @@
   const backToYearsBtn = document.getElementById('back-to-years-btn');
   const breadcrumbYearLabel = document.getElementById('breadcrumb-year-label');
   const practiceYearBtn = document.getElementById('practice-year-btn');
+  const clearYearBtn = document.getElementById('clear-year-btn');
   const monthsGrid = document.getElementById('months-grid');
 
   // Level 3: Month View (Dates) Elements
@@ -118,6 +119,7 @@
   const breadcrumbYearLink1 = document.getElementById('breadcrumb-year-link-1');
   const breadcrumbMonthLabel = document.getElementById('breadcrumb-month-label');
   const practiceMonthBtn = document.getElementById('practice-month-btn');
+  const clearMonthBtn = document.getElementById('clear-month-btn');
   const datesGrid = document.getElementById('dates-grid');
 
   // Level 4: Date View (Words) Elements
@@ -128,6 +130,7 @@
   const breadcrumbDateLabel = document.getElementById('breadcrumb-date-label');
   const dateWordsBadge = document.getElementById('date-words-badge');
   const practiceDateBtn = document.getElementById('practice-date-btn');
+  const clearDateBtn = document.getElementById('clear-date-btn');
   const wordsGridEl = document.getElementById('words-grid');
 
   // Flashcard Elements
@@ -155,6 +158,23 @@
   const exportBtn = document.getElementById('export-btn');
   const importInput = document.getElementById('import-input');
   const installAppBtn = document.getElementById('install-app-btn');
+
+  // Clear Words Modal & Undo Elements
+  const clearModalBackdrop = document.getElementById('clear-modal-backdrop');
+  const clearModalTitle = document.getElementById('clear-modal-title');
+  const clearModalDesc = document.getElementById('clear-modal-desc');
+  const clearModalInputGroup = document.getElementById('clear-modal-input-group');
+  const clearModalInput = document.getElementById('clear-modal-input');
+  const clearModalCancelBtn = document.getElementById('clear-modal-cancel-btn');
+  const clearModalConfirmBtn = document.getElementById('clear-modal-confirm-btn');
+  const undoToast = document.getElementById('undo-toast');
+  const undoToastText = document.getElementById('undo-toast-text');
+  const undoActionBtn = document.getElementById('undo-action-btn');
+
+  // Clear Words & Undo State
+  let pendingClearAction = null;
+  let lastUndoState = null;
+  let undoToastTimer = null;
 
   // --------------------------------------------------------------------------
   // Utility Functions
@@ -589,6 +609,22 @@
       openFlashcards(yearWords, `Practice: ${year.yearLabel}`);
     };
 
+    // Clear button for this entire year (shown only when words exist)
+    if (yearWords.length > 0) {
+      clearYearBtn.classList.remove('hidden');
+      clearYearBtn.onclick = () => {
+        openClearModal({
+          title: `Clear Year ${year.yearLabel}`,
+          message: `Delete all ${yearWords.length} ${yearWords.length === 1 ? 'word' : 'words'} from ${year.yearLabel}? This cannot be undone.`,
+          level: 'year',
+          targetKey: yearKey,
+          wordsToDelete: yearWords
+        });
+      };
+    } else {
+      clearYearBtn.classList.add('hidden');
+    }
+
     // Render Month Cards
     monthsGrid.innerHTML = '';
     const fragment = document.createDocumentFragment();
@@ -652,6 +688,22 @@
     practiceMonthBtn.onclick = () => {
       openFlashcards(monthWords, `Practice: ${month.monthName} ${year.yearLabel}`);
     };
+
+    // Clear button for this month (shown only when words exist)
+    if (monthWords.length > 0) {
+      clearMonthBtn.classList.remove('hidden');
+      clearMonthBtn.onclick = () => {
+        openClearModal({
+          title: `Clear Month ${month.monthName} ${year.yearLabel}`,
+          message: `Delete all ${monthWords.length} ${monthWords.length === 1 ? 'word' : 'words'} from ${month.monthName} ${year.yearLabel}? This cannot be undone.`,
+          level: 'month',
+          targetKey: monthKey,
+          wordsToDelete: monthWords
+        });
+      };
+    } else {
+      clearMonthBtn.classList.add('hidden');
+    }
 
     // Render Date Cards
     datesGrid.innerHTML = '';
@@ -745,6 +797,22 @@
     practiceDateBtn.onclick = () => {
       openFlashcards(dateObj.words, `Practice: ${dateObj.dateLabel}`);
     };
+
+    // Clear button for this date (shown only when words exist)
+    if (dateObj.words.length > 0) {
+      clearDateBtn.classList.remove('hidden');
+      clearDateBtn.onclick = () => {
+        openClearModal({
+          title: `Clear Date ${dateObj.dateLabel}`,
+          message: `Delete all ${dateObj.words.length} ${dateObj.words.length === 1 ? 'word' : 'words'} from ${dateObj.dateLabel}? This cannot be undone.`,
+          level: 'date',
+          targetKey: dateKey,
+          wordsToDelete: dateObj.words
+        });
+      };
+    } else {
+      clearDateBtn.classList.add('hidden');
+    }
 
     // Render word cards for this date
     wordsGridEl.innerHTML = '';
@@ -1044,6 +1112,221 @@
   }
 
   // --------------------------------------------------------------------------
+  // Clear Level Words (Year / Month / Date) with Modal & Undo Toast
+  // --------------------------------------------------------------------------
+
+  /**
+   * Opens the custom in-page confirmation modal.
+   * Cancel button is focused by default.
+   * If level === 'year', requires typing 'DELETE' to enable confirmation.
+   */
+  function openClearModal({ title, message, level, targetKey, wordsToDelete }) {
+    pendingClearAction = {
+      level,
+      targetKey,
+      wordsToDelete: [...wordsToDelete],
+      previousHash: window.location.hash || '#/'
+    };
+
+    clearModalTitle.textContent = title;
+    clearModalDesc.textContent = message;
+
+    if (level === 'year') {
+      clearModalInputGroup.classList.remove('hidden');
+      clearModalInput.value = '';
+      clearModalConfirmBtn.disabled = true;
+    } else {
+      clearModalInputGroup.classList.add('hidden');
+      clearModalInput.value = '';
+      clearModalConfirmBtn.disabled = false;
+    }
+
+    clearModalBackdrop.classList.remove('hidden');
+    // Ensure Cancel button is focused by default
+    setTimeout(() => {
+      clearModalCancelBtn.focus();
+    }, 50);
+  }
+
+  function closeClearModal() {
+    clearModalBackdrop.classList.add('hidden');
+    clearModalInput.value = '';
+    clearModalConfirmBtn.disabled = false;
+    pendingClearAction = null;
+  }
+
+  // Validate typing "DELETE" (case-insensitive) for Year view
+  clearModalInput.addEventListener('input', () => {
+    if (!pendingClearAction || pendingClearAction.level !== 'year') return;
+    const isDelete = clearModalInput.value.trim().toUpperCase() === 'DELETE';
+    clearModalConfirmBtn.disabled = !isDelete;
+  });
+
+  clearModalInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !clearModalConfirmBtn.disabled) {
+      e.preventDefault();
+      executePendingClear();
+    }
+  });
+
+  clearModalCancelBtn.addEventListener('click', closeClearModal);
+
+  clearModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === clearModalBackdrop) {
+      closeClearModal();
+    }
+  });
+
+  clearModalConfirmBtn.addEventListener('click', executePendingClear);
+
+  /**
+   * Executes deletion of the words belonging to the cleared level.
+   * Updates localStorage, stats, WOTD, navigates to the nearest level that still has words,
+   * and displays the 10-second Undo toast.
+   */
+  function executePendingClear() {
+    if (!pendingClearAction || !pendingClearAction.wordsToDelete.length) {
+      closeClearModal();
+      return;
+    }
+
+    const { level, targetKey, wordsToDelete, previousHash } = pendingClearAction;
+    const count = wordsToDelete.length;
+    const deleteIds = new Set(wordsToDelete.map(w => w.id));
+
+    // Delete only the words belonging to that level
+    words = words.filter(w => !deleteIds.has(w.id));
+
+    // Reset edit form if the word being edited was deleted
+    if (editingWordId && deleteIds.has(editingWordId)) {
+      resetForm();
+    }
+
+    // Save to localStorage safely
+    setStoredWords(words);
+
+    // Save undo state
+    lastUndoState = {
+      words: wordsToDelete,
+      previousHash: previousHash || '#/'
+    };
+
+    closeClearModal();
+
+    // Show accessible Undo toast for ~10 seconds
+    showUndoToast(`${count} ${count === 1 ? 'word' : 'words'} deleted`);
+
+    // Go back to the nearest level that still has words
+    navigateAfterClear(level, targetKey);
+  }
+
+  /**
+   * Navigates to the nearest level that still has words:
+   * - Date cleared: if month has words -> month view; else if year has words -> year view; else -> year list (#/)
+   * - Month cleared: if year has words -> year view; else -> year list (#/)
+   * - Year cleared: -> year list (#/)
+   */
+  function navigateAfterClear(level, targetKey) {
+    let targetHash = '#/';
+
+    if (level === 'date') {
+      const monthKey = targetKey.substring(0, 7);
+      const yearKey = targetKey.substring(0, 4);
+
+      const monthHasWords = words.some(w => {
+        const info = getLocalDateInfo(w.dateAdded);
+        return info && info.monthKey === monthKey;
+      });
+
+      if (monthHasWords) {
+        targetHash = `#/${monthKey}`;
+      } else {
+        const yearHasWords = words.some(w => {
+          const info = getLocalDateInfo(w.dateAdded);
+          return info && info.yearKey === yearKey;
+        });
+        if (yearHasWords) {
+          targetHash = `#/${yearKey}`;
+        } else {
+          targetHash = '#/';
+        }
+      }
+    } else if (level === 'month') {
+      const yearKey = targetKey.substring(0, 4);
+      const yearHasWords = words.some(w => {
+        const info = getLocalDateInfo(w.dateAdded);
+        return info && info.yearKey === yearKey;
+      });
+
+      if (yearHasWords) {
+        targetHash = `#/${yearKey}`;
+      } else {
+        targetHash = '#/';
+      }
+    } else if (level === 'year') {
+      targetHash = '#/';
+    }
+
+    const currentHash = window.location.hash || '#/';
+    if (currentHash === targetHash) {
+      updateAppView();
+    } else {
+      window.location.hash = targetHash;
+    }
+  }
+
+  /**
+   * Shows the Undo toast at the bottom for ~10 seconds.
+   */
+  function showUndoToast(message) {
+    if (undoToastTimer) {
+      clearTimeout(undoToastTimer);
+      undoToastTimer = null;
+    }
+
+    undoToastText.textContent = message;
+    undoToast.classList.remove('hidden');
+
+    undoToastTimer = setTimeout(() => {
+      hideUndoToast();
+    }, 10000);
+  }
+
+  function hideUndoToast() {
+    if (undoToastTimer) {
+      clearTimeout(undoToastTimer);
+      undoToastTimer = null;
+    }
+    undoToast.classList.add('hidden');
+  }
+
+  // Undo button action listener
+  undoActionBtn.addEventListener('click', () => {
+    if (!lastUndoState || !lastUndoState.words.length) return;
+
+    const restoredWords = lastUndoState.words;
+    const returnHash = lastUndoState.previousHash || '#/';
+
+    // Restore exactly those words in original data format
+    const existingIds = new Set(words.map(w => w.id));
+    const wordsToAdd = restoredWords.filter(w => !existingIds.has(w.id));
+    words = words.concat(wordsToAdd);
+
+    setStoredWords(words);
+    lastUndoState = null;
+    hideUndoToast();
+
+    showToast(`Restored ${restoredWords.length} ${restoredWords.length === 1 ? 'word' : 'words'}.`, 'success');
+
+    // Return the view to where they were
+    if ((window.location.hash || '#/') === returnHash) {
+      updateAppView();
+    } else {
+      window.location.hash = returnHash;
+    }
+  });
+
+  // --------------------------------------------------------------------------
   // Flashcard Mode (Filtered Decks & 3D Flip)
   // --------------------------------------------------------------------------
   function openFlashcards(wordsList, title) {
@@ -1172,6 +1455,11 @@
   document.addEventListener('keydown', (e) => {
     // Escape key handling
     if (e.key === 'Escape') {
+      if (clearModalBackdrop && !clearModalBackdrop.classList.contains('hidden')) {
+        closeClearModal();
+        return;
+      }
+
       if (!flashcardSection.classList.contains('hidden')) {
         flashcardSection.classList.add('hidden');
         toggleFlashcardsBtn.classList.remove('btn-primary');

@@ -4,7 +4,7 @@
  * Ensures the app works offline while guaranteeing phones always get updated CSS/JS when online.
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `vocabvault-${CACHE_VERSION}`;
 
 // Precache essential assets on install

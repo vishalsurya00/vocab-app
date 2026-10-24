@@ -277,9 +277,14 @@
               <span class="breadcrumb-separator" aria-hidden="true">›</span>
               <span id="breadcrumb-year-label" class="breadcrumb-current">Year</span>
             </nav>
-            <button id="practice-year-btn" class="btn btn-primary btn-sm" aria-label="Practice words in this year">
-              <span aria-hidden="true">🗂️</span> Practice this year
-            </button>
+            <div class="drilldown-actions">
+              <button id="practice-year-btn" class="btn btn-primary btn-sm" aria-label="Practice words in this year">
+                <span aria-hidden="true">🗂️</span> Practice this year
+              </button>
+              <button id="clear-year-btn" class="btn btn-danger-outline btn-sm" aria-label="Clear all words from this year">
+                <span aria-hidden="true">🗑️</span> Clear this year
+              </button>
+            </div>
           </div>
           <div id="months-grid" class="nav-cards-grid" role="region" aria-label="Months list">
             <!-- Dynamic Month Cards -->
@@ -299,9 +304,14 @@
               <span class="breadcrumb-separator" aria-hidden="true">›</span>
               <span id="breadcrumb-month-label" class="breadcrumb-current">Month</span>
             </nav>
-            <button id="practice-month-btn" class="btn btn-primary btn-sm" aria-label="Practice words in this month">
-              <span aria-hidden="true">🗂️</span> Practice this month
-            </button>
+            <div class="drilldown-actions">
+              <button id="practice-month-btn" class="btn btn-primary btn-sm" aria-label="Practice words in this month">
+                <span aria-hidden="true">🗂️</span> Practice this month
+              </button>
+              <button id="clear-month-btn" class="btn btn-danger-outline btn-sm" aria-label="Clear all words from this month">
+                <span aria-hidden="true">🗑️</span> Clear this month
+              </button>
+            </div>
           </div>
           <div id="dates-grid" class="nav-cards-grid" role="region" aria-label="Dates list">
             <!-- Dynamic Date Cards -->
@@ -327,6 +337,9 @@
               <span id="date-words-badge" class="badge">0 words</span>
               <button id="practice-date-btn" class="btn btn-primary btn-sm" aria-label="Practice words from this day">
                 <span aria-hidden="true">🗂️</span> Practice this day
+              </button>
+              <button id="clear-date-btn" class="btn btn-danger-outline btn-sm" aria-label="Clear all words from this day">
+                <span aria-hidden="true">🗑️</span> Clear this day
               </button>
             </div>
           </div>
@@ -355,6 +368,41 @@
       </div>
     </section>
   </main>
+
+  <!-- Clear Confirmation In-Page Modal Dialog -->
+  <div id="clear-modal-backdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="clear-modal-title" aria-describedby="clear-modal-desc">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-icon-danger" aria-hidden="true">⚠️</div>
+        <h3 id="clear-modal-title" class="modal-title">Confirm Deletion</h3>
+      </div>
+      <p id="clear-modal-desc" class="modal-desc"></p>
+      
+      <!-- Type DELETE input group (used exclusively for Year level) -->
+      <div id="clear-modal-input-group" class="modal-input-group hidden">
+        <label for="clear-modal-input" class="modal-input-label">Type <strong>DELETE</strong> to confirm:</label>
+        <input type="text" id="clear-modal-input" class="form-control" autocomplete="off" placeholder="DELETE">
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="clear-modal-cancel-btn" class="btn btn-outline">Cancel</button>
+        <button type="button" id="clear-modal-confirm-btn" class="btn btn-danger">
+          <span aria-hidden="true">🗑️</span> Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Undo Toast Notification Container -->
+  <div id="undo-toast" class="undo-toast hidden" role="alert" aria-live="assertive">
+    <div class="undo-toast-content">
+      <span class="undo-toast-icon" aria-hidden="true">🗑️</span>
+      <span id="undo-toast-text" class="undo-toast-text">Words deleted</span>
+    </div>
+    <button type="button" id="undo-action-btn" class="btn btn-primary btn-sm undo-btn" aria-label="Undo deletion">
+      <span aria-hidden="true">↩️</span> Undo
+    </button>
+  </div>
 
   <!-- Footer -->
   <footer class="app-footer">
